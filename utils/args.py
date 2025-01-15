@@ -11,12 +11,20 @@ def parser_args():
     parser.add_argument('--log_folder_name', type=str, default='/training_log_correct_iid/',
                         help='saving path')
     
+    parser.add_argument('--samples_per_user', type=int, default=5000,
+                        help="the number of samples in per user")
+    parser.add_argument('--defense', type=str, default="none",
+                        help="defense method:[mix_up, instahide]")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed")
+    parser.add_argument('--frac', type=float, default=1,
+                        help="the fraction of clients: C")
     parser.add_argument('--local_ep', type=int, default=1,
                         help="the number of local epochs: E")
     parser.add_argument('--batch_size', type=int, default=5000,
                         help="local batch size: B")
+    parser.add_argument('--lr_outer', type=float, default=1,
+                        help="learning rate")
     parser.add_argument('--lr', type=float, default=0.01,
                         help="learning rate for inner update")
     parser.add_argument('--lr_up', type=str, default='common',
@@ -27,6 +35,8 @@ def parser_args():
                         help='dataset is split iid or not')
     parser.add_argument('--MIA_mode', type=int,  default =1,
                         help='MIA score is computed or not')
+    parser.add_argument('--wd', type=float, default=1e-5,
+                        help='weight decay')
     parser.add_argument('--optim', type=str, default='sgd',
                         help='optimizer: [sgd, adam]')
     parser.add_argument('--epochs', type=int, default=50,
@@ -37,6 +47,13 @@ def parser_args():
                         help='model architecture name')
     
     parser.add_argument('--dataset', type=str, default='cifar10', help="name of dataset")
+    
+    # =========================== Other parameters ===================================
+    parser.add_argument('--num_classes', default=10, type=int)
+    parser.add_argument('--bp_interval', default=30, type=int, help='interval for starting bp the local part')
+    parser.add_argument('--log_interval', default=1, type=int,
+                        help='interval for evaluating loss and accuracy')
+
     
     args = parser.parse_args()
     return args
