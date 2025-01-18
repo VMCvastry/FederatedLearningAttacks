@@ -44,7 +44,3 @@ if __name__ == "__main__":
     log_data = read_log_file(log_file_path)
 
     plot_accuracies(log_data, log_file_path)
-
-# python3 plot_loss.py "../FedMIA/log_fedmia_4_300/log_fedmia_4_300/cifar100_K10_N5000_alexnet_defnone_iid_\$sgd_local4_s1/a_alexnet_cifar100_10_sgd_cosine_100_2025_01_04_162500.log"
-# python3 plot_loss.py "../FedMIA/log_fedmia/cifar100_K10_N5000_alexnet_defnone_iid_\$sgd_local1_s1/a_alexnet_cifar100_10_sgd_cosine_100_2025_01_02_233151.log"
-# python3 plot_loss.py "../FedMIA/log_fedmia/cifar100_K10_N5000_alexnet_defnone_iid_\$sgd_local1_s1/a_alexnet_cifar100_10_sgd_cosine_100_2025_01_02_172418.log"

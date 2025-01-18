@@ -164,8 +164,8 @@ def fig_out(
     )
     for k in d.keys():
         plt.plot(
-            x_axis_data[0 : len(d[k])], d[k], linewidth=1, label=k
-        )  # ,color=colors[k])
+            x_axis_data[0 : len(d[k])], d[k], linewidth=1, label=k, color=colors[k]
+        )
     # plt.plot(x_axis_data, common_score,'bo-', linewidth=1, color='#2E8B57', label=r'Baseline')
     plt.legend(loc=3)
 
@@ -175,12 +175,12 @@ def fig_out(
     if avg_d:
         for k in avg_d.keys():
             if avg_d[k]:
-                plt.hlines(
-                    [avg_d[k][fpr_val]],
-                    xmin=0,
-                    xmax=300,
+                plt.plot(
+                    [0, 300],
+                    [avg_d[k][fpr_val], avg_d[k][fpr_val]],
                     label="avg_" + k,
                     color=colors[k],
+                    linestyle="--",
                 )
 
     plt.legend(prop={"size": 10})
@@ -190,7 +190,7 @@ def fig_out(
 
     pdf_path = (
         log_path
-        + f"/def{defence}2_0.85_k{MAX_K}_{seed}_{len(x_axis_data*10)}_{fpr_val}_attack.pdf"
+        + f"/def{defence}2_0.85_k{MAX_K}_{seed}_{len(x_axis_data*10)}_{fpr_val}_attack.png"
     )
     plt.savefig(pdf_path)
 
