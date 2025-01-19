@@ -153,7 +153,6 @@ def fig_out(
 ):
     colors = {
         "cosine attack": "r",
-        "grad diff": "g",
         "loss based": "b",
         "lira": "y",
     }

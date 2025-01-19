@@ -20,7 +20,6 @@ def cos_attack_single(
     """
     A single-model membership inference that uses either:
       - "cosine attack" (cos),
-      - "grad diff" (diff),
       - "loss based" (CE).
 
     This effectively subsumes 'common_attack' if you choose attack_mode="loss based".
@@ -55,24 +54,6 @@ def cos_attack_single(
 
         auc_val, log_auc_val, tprs_val = calc_auc(
             "cos_attack", torch.tensor(val_liratios), torch.tensor(train_liratios), epch
-        )
-        return accs, tprs_val, auc_val, log_auc_val, (val_liratios, train_liratios)
-
-    elif attack_mode == "grad diff":
-        if MODE == "test":
-            val_liratios = target_res["test_diffs"]
-        else:  # "val"
-            val_liratios = target_res["val_diffs"]
-        val_liratios = np.array([v.cpu().item() for v in val_liratios])
-
-        train_liratios = target_res["tarin_diffs"]
-        train_liratios = np.array([v.cpu().item() for v in train_liratios])
-
-        auc_val, log_auc_val, tprs_val = calc_auc(
-            "diff_attack",
-            torch.tensor(val_liratios),
-            torch.tensor(train_liratios),
-            epch,
         )
         return accs, tprs_val, auc_val, log_auc_val, (val_liratios, train_liratios)
 
@@ -235,7 +216,7 @@ def attack_comparison(
     reses_lira = []
     reses_common = {
         k: [] for k in attack_modes
-    }  # e.g. "cosine attack", "grad diff", etc.
+    }  # e.g. "cosine attack"
 
     # *scores* holds TPR@FPR=FPR_THRESHOLD for each epoch
     scores = {k: [] for k in attack_modes}
@@ -297,7 +278,6 @@ def attack_comparison(
         fpr_str = str(fpr_threshold)  #
         avg_scores["lira"].append(tprs_val.get(fpr_str, 0.0))
 
-        # Run 'common' attacks (e.g. "cosine attack", "grad diff", "loss based"):
         for attack_mode in attack_modes:
             common_score = cos_attack_single(
                 p,

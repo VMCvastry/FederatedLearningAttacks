@@ -4,7 +4,7 @@ from attacks.attack import attack_comparison
 
 
 def main(argv):
-    attack_modes = ["cosine attack", "grad diff", "loss based"]
+    attack_modes = ["cosine attack", "loss based"]
     epochs = list(range(10, int(argv[2]) + 1, 10))
     p_folder = argv[1]
     PATH = argv[1]

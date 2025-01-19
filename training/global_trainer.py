@@ -271,7 +271,7 @@ class FederatedLearning(BaseTrainer):
                                 model_grads.append(para_diff.detach().cpu().flatten())
                         model_grads = torch.cat(model_grads, -1)
 
-                        ## compute cosine score 和 grad diff score
+                        ## compute cosine score
                         cos_model = models.__dict__[self.model_name](
                             num_classes=self.num_classes
                         )
