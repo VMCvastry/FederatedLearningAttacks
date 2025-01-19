@@ -424,8 +424,8 @@ def attack_comparison(
     scores["lira"] = []  # we'll store TPR@FPR=FPR_THRESHOLD for LIRA as well
 
     # *avg_scores* will store the final aggregated TPR dictionary for each attack
-    avg_scores = {k: None for k in attack_modes}
-    avg_scores["lira"] = None
+    avg_scores = {k: [] for k in attack_modes}
+    avg_scores["lira"] = []
 
     # Some lists for quick logging or checks
     lira_scores = []
@@ -459,8 +459,25 @@ def attack_comparison(
         lira_tpr_fpr01 = lira_tprs.get(fpr_threshold, 0.0)
 
         scores["lira"].append(lira_tpr_fpr01)  # store per-epoch TPR@FPR=FPR_THRESHOLD
-        lira_scores.append(lira_tpr_fpr01)  # keep a parallel list
+        lira_scores.append(lira_tpr_fpr01)
         reses_lira.append(lira_score[-1])  # the raw (train_scores, test_scores)
+
+        # Calc running average
+        train_arrays = [pair[0].reshape(1, -1) for pair in reses_lira]
+        test_arrays = [pair[1].reshape(1, -1) for pair in reses_lira]
+
+        train_score = np.vstack(train_arrays).mean(axis=0)
+        test_score = np.vstack(test_arrays).mean(axis=0)
+
+        auc_val, log_auc_val, tprs_val = calc_auc(
+            "averaged_lira_running",
+            torch.tensor(test_score),
+            torch.tensor(train_score),
+            epch,
+        )
+
+        fpr_str = str(fpr_threshold)  #
+        avg_scores["lira"].append(tprs_val.get(fpr_str, 0.0))
 
         # Run 'common' attacks (e.g. "cosine attack", "grad diff", "loss based"):
         for attack_mode in attack_modes:
@@ -480,6 +497,26 @@ def attack_comparison(
             # The raw membership scores for aggregator
             reses_common[attack_mode].append(common_score[-1])
 
+            # Calc running average
+            train_arrays = [
+                x[0].reshape(1, -1) for x in reses_common[attack_mode]
+            ]  # x[0] => val_liratios
+            val_arrays = [
+                x[1].reshape(1, -1) for x in reses_common[attack_mode]
+            ]  # x[1] => train_liratios
+
+            mean_val = -np.vstack(val_arrays).mean(axis=0)
+            mean_train = -np.vstack(train_arrays).mean(axis=0)
+
+            auc_, log_auc_, tprs_ = calc_auc(
+                "avg_" + attack_mode,
+                torch.tensor(mean_val),  # first => "non-member" side
+                torch.tensor(mean_train),  # second => "member" side
+                epch,
+            )
+
+            avg_scores[attack_mode].append(tprs_.get(fpr_str, 0.0))
+
             # If epoch=200 and "loss based", store additional info
             if epch == 200 and attack_mode == "loss based":
                 other_scores["loss_single_epch_score"] = common_score[
@@ -489,78 +526,6 @@ def attack_comparison(
                     common_score[2],
                     common_score[3],
                 ]  # (auc, log_auc)
-
-    # 4. Aggregate LIRA Scores across all epochs
-    #    ---------------------------------------
-    # 'reses_lira' is a list of (train_scores, test_scores) for each epoch
-    if len(reses_lira) == 0:
-        print("No valid LIRA results found, returning early.")
-        return
-
-    # 4.1 'averaged_lira' approach
-    train_arrays = [pair[0].reshape(1, -1) for pair in reses_lira]
-    test_arrays = [pair[1].reshape(1, -1) for pair in reses_lira]
-    train_score = np.vstack(train_arrays).mean(axis=0)
-    test_score = np.vstack(test_arrays).mean(axis=0)
-
-    auc, log_auc, tprs = calc_auc(
-        "averaged_lira", torch.tensor(test_score), torch.tensor(train_score), 999
-    )
-    avg_scores["lira"] = tprs
-    other_scores["lira_auc"] = [auc, log_auc]
-    print(f"\n[averaged_lira] TPR dictionary: {tprs}")
-    print("Successfully computed averaged_lira.\n")
-
-    # 4.2 'averaged_log_lira' approach
-    train_log_arr = [1 - np.log(pair[0].reshape(1, -1)) for pair in reses_lira]
-    test_log_arr = [1 - np.log(pair[1].reshape(1, -1)) for pair in reses_lira]
-    # negative mean, ignoring NaN/inf:
-    train_score = -np.nanmean(np.vstack(train_log_arr), axis=0)
-    test_score = -np.nanmean(np.vstack(test_log_arr), axis=0)
-
-    # Filter out invalid values
-    train_score = _filter_inf_nan(train_score, fill_value=-1e10)
-    test_score = _filter_inf_nan(test_score, fill_value=-1e10)
-
-    auc, log_auc, tprs = calc_auc(
-        "averaged_log_lira", torch.tensor(test_score), torch.tensor(train_score), 999
-    )
-    avg_scores["log_lira"] = tprs
-    other_scores["log_lira_auc"] = [auc, log_auc]
-    print(f"[averaged_log_lira] TPR dictionary: {tprs}")
-    print("Successfully computed averaged_log_lira.\n")
-
-    # 5. Aggregate 'common' attacks: "cosine attack", "grad diff", "loss based"
-    #    ----------------------------------------------------------------------
-    for attack_mode in ["cosine attack", "grad diff", "loss based"]:
-        reses = reses_common[attack_mode]
-        if len(reses) == 0:
-            print(f"No data found for {attack_mode}, skipping aggregator.\n")
-            continue
-
-        # Each res in reses is (val_liratios, train_liratios).
-        # We do negative mean to match the original code's logic:
-        train_arrays = [arr[0].reshape(1, -1) for arr in reses]
-        val_arrays = [arr[1].reshape(1, -1) for arr in reses]
-
-        # mean along axis=0, then negative
-        mean_val = -np.vstack(val_arrays).mean(axis=0)
-        mean_train = -np.vstack(train_arrays).mean(axis=0)
-
-        auc, log_auc, tprs = calc_auc(
-            f"averaged_{attack_mode}",
-            torch.tensor(mean_val),
-            torch.tensor(mean_train),
-            999,
-        )
-        avg_scores[attack_mode] = tprs
-
-        # e.g., "cos_attack_auc" or "grad_diff_auc", etc.
-        other_scores_key = f"{attack_mode.replace(' ', '_')}_auc"
-        other_scores[other_scores_key] = [auc, log_auc]
-
-        print(f"[{attack_mode}] TPR dictionary: {tprs}")
-        print("Successfully computed averages for", attack_mode, "\n")
 
     # 6. Show final TPR@FPR=FPR_THRESHOLD for each epoch & each attack
     #    ----------------------------------------------------

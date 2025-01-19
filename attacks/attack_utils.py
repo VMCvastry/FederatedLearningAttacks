@@ -156,7 +156,6 @@ def fig_out(
         "grad diff": "g",
         "loss based": "b",
         "lira": "y",
-        "log_lira": "k",
     }
     fig = plt.figure(figsize=(6.5, 6.5), dpi=200)
     fig.subplots_adjust(
@@ -176,8 +175,8 @@ def fig_out(
         for k in avg_d.keys():
             if avg_d[k]:
                 plt.plot(
-                    [0, 300],
-                    [avg_d[k][fpr_val], avg_d[k][fpr_val]],
+                    x_axis_data[: len(avg_d[k])],
+                    avg_d[k],
                     label="avg_" + k,
                     color=colors[k],
                     linestyle="--",
