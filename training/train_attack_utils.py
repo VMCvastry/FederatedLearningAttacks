@@ -72,14 +72,13 @@ def compute_all_gradient_metrics(
 
     optimizer = optim.SGD(cos_model.parameters(), lr, momentum=0.9, weight_decay=0.0005)
 
-    # Differential privacy mitigation
     privacy_engine = PrivacyEngine()
     cos_model, optimizer, samples_loader = privacy_engine.make_private(
         module=cos_model,
         optimizer=optimizer,
         data_loader=initial_loader,
-        noise_multiplier=100 if use_dp else 0,
-        max_grad_norm=5000 if use_dp else 1e10,
+        noise_multiplier=0,
+        max_grad_norm=1e10,
     )
 
     tarin_dataloader = DataLoader(
