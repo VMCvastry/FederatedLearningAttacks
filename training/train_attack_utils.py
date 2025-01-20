@@ -78,8 +78,8 @@ def compute_all_gradient_metrics(
         module=cos_model,
         optimizer=optimizer,
         data_loader=initial_loader,
-        noise_multiplier=0.5 if use_dp else 0,
-        max_grad_norm=1e10,  # set to something like 5.0 to increase privacy
+        noise_multiplier=3 if use_dp else 0,
+        max_grad_norm=50 if use_dp else 1e10,
     )
 
     tarin_dataloader = DataLoader(
