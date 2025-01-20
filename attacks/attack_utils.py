@@ -154,7 +154,7 @@ def fig_out(
     colors = {
         "cosine attack": "r",
         "loss based": "b",
-        "lira": "y",
+        "spatial-cosine": "y",
     }
     fig = plt.figure(figsize=(6.5, 6.5), dpi=200)
     fig.subplots_adjust(
@@ -176,7 +176,7 @@ def fig_out(
                 plt.plot(
                     x_axis_data[: len(avg_d[k])],
                     avg_d[k],
-                    label="avg_" + k,
+                    label="temporal " + k,
                     color=colors[k],
                     linestyle="--",
                 )

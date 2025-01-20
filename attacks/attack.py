@@ -83,12 +83,10 @@ def cos_attack_single(
         raise ValueError(f"Unknown attack_mode: {attack_mode}")
 
 
-def lira_attack_ldh_cosine(f, epch, K, extract_fn=None, attack_mode="cos"):
+def multi_spatial_attack_ldh_cosine(f, epch, K, extract_fn=None, attack_mode="cos"):
     """
     A multi-client approach that uses gradient cos or diff features
     from each of the K clients to form a shadow distribution.
-    This is more advanced and corresponds to the LIRA approach
-    with either 'cos' or 'diff'.
     """
     accs = []
     training_res = []
@@ -155,7 +153,10 @@ def lira_attack_ldh_cosine(f, epch, K, extract_fn=None, attack_mode="cos"):
     )
 
     auc_val, log_auc_val, tprs_val = calc_auc(
-        "lira", torch.tensor(test_l_out), torch.tensor(train_l_out), epch
+        "spatial-cosine",
+        torch.tensor(test_l_out),
+        torch.tensor(train_l_out),
+        epch,
     )
     # Return (accs, tprs, auc, log_auc, membership_scores)
     return accs, tprs_val, auc_val, log_auc_val, (train_l_out, test_l_out)
@@ -200,34 +201,33 @@ def attack_comparison(
     # 1. Run LIRA Attack on the last epoch to get final accuracy
     #    ------------------------------------------------------
     try:
-        final_lira_result = lira_attack_ldh_cosine(
+        final_multi_spatial_result = multi_spatial_attack_ldh_cosine(
             p, epochs[-1], K=MAX_K, extract_fn=extract_hinge_loss
         )
-        # final_lira_result usually returns something like:
         # (accs, tprs, auc, log_auc, (train_scores, test_scores))
-        final_acc = final_lira_result[0]  # The test accuracy array
+        final_acc = final_multi_spatial_result[0]  # The test accuracy array
     except (ValueError, IndexError) as e:
-        print(f"Error loading LIRA on final epoch {epochs[-1]}: {e}")
+        print(f"Error loading multi_spatial on final epoch {epochs[-1]}: {e}")
         return  # Cannot proceed if we fail here
 
     # 2. Prepare data structures to track results
     #    ----------------------------------------
     # reses_*: Will store arrays of membership scores to be averaged later
-    reses_lira = []
-    reses_common = {
-        k: [] for k in attack_modes
-    }  # e.g. "cosine attack"
+    reses_multi_spatial = []
+    reses_common = {k: [] for k in attack_modes}  # e.g. "cosine attack"
 
     # *scores* holds TPR@FPR=FPR_THRESHOLD for each epoch
     scores = {k: [] for k in attack_modes}
-    scores["lira"] = []  # we'll store TPR@FPR=FPR_THRESHOLD for LIRA as well
+    scores["spatial-cosine"] = (
+        []
+    )  # we'll store TPR@FPR=FPR_THRESHOLD for multi_spatial as well
 
     # *avg_scores* will store the final aggregated TPR dictionary for each attack
     avg_scores = {k: [] for k in attack_modes}
-    avg_scores["lira"] = []
+    avg_scores["spatial-cosine"] = []
 
     # Some lists for quick logging or checks
-    lira_scores = []
+    multi_spatial_scores = []
     common_scores = []
 
     # *other_scores* collects optional debug info or single-epoch results for special cases
@@ -237,14 +237,13 @@ def attack_comparison(
     print(f"Epochs to evaluate: {epochs}")
     print(f"Using up to {MAX_K} clients, defense: {defence}, seed: {seed}\n")
 
-    # 3. Main loop: run LIRA + 'common' attacks for each epoch
+    # 3. Main loop: run multi_spatial + 'common' attacks for each epoch
     #    -----------------------------------------------------
     for epch in epochs:
         print(f"Evaluating epoch={epch}")
 
         try:
-            # LIRA: lira_attack_ldh_cosine
-            lira_score = lira_attack_ldh_cosine(
+            multi_spatial_score = multi_spatial_attack_ldh_cosine(
                 p, epch, K=MAX_K, extract_fn=extract_hinge_loss
             )
         except ValueError:
@@ -252,31 +251,35 @@ def attack_comparison(
             print(f"ValueError at epoch={epch}, skipping...")
             continue
 
-        # lira_score: (accs, tprs, auc, log_auc, (train_scores, test_scores))
+        # multi_spatial_score: (accs, tprs, auc, log_auc, (train_scores, test_scores))
         # We record TPR@FPR=FPR_THRESHOLD from the "tprs" dictionary
-        lira_tprs = lira_score[1]
-        lira_tpr_fpr01 = lira_tprs.get(fpr_threshold, 0.0)
+        multi_spatial_tprs = multi_spatial_score[1]
+        multi_spatial_tpr_fpr01 = multi_spatial_tprs.get(fpr_threshold, 0.0)
 
-        scores["lira"].append(lira_tpr_fpr01)  # store per-epoch TPR@FPR=FPR_THRESHOLD
-        lira_scores.append(lira_tpr_fpr01)
-        reses_lira.append(lira_score[-1])  # the raw (train_scores, test_scores)
+        scores["spatial-cosine"].append(
+            multi_spatial_tpr_fpr01
+        )  # store per-epoch TPR@FPR=FPR_THRESHOLD
+        multi_spatial_scores.append(multi_spatial_tpr_fpr01)
+        reses_multi_spatial.append(
+            multi_spatial_score[-1]
+        )  # the raw (train_scores, test_scores)
 
         # Calc running average
-        train_arrays = [pair[0].reshape(1, -1) for pair in reses_lira]
-        test_arrays = [pair[1].reshape(1, -1) for pair in reses_lira]
+        train_arrays = [pair[0].reshape(1, -1) for pair in reses_multi_spatial]
+        test_arrays = [pair[1].reshape(1, -1) for pair in reses_multi_spatial]
 
         train_score = np.vstack(train_arrays).mean(axis=0)
         test_score = np.vstack(test_arrays).mean(axis=0)
 
         auc_val, log_auc_val, tprs_val = calc_auc(
-            "averaged_lira_running",
+            "averaged_multi_spatial_running",
             torch.tensor(test_score),
             torch.tensor(train_score),
             epch,
         )
 
         fpr_str = str(fpr_threshold)  #
-        avg_scores["lira"].append(tprs_val.get(fpr_str, 0.0))
+        avg_scores["spatial-cosine"].append(tprs_val.get(fpr_str, 0.0))
 
         for attack_mode in attack_modes:
             common_score = cos_attack_single(
